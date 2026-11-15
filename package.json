@@ -1,0 +1,8 @@
+{
+  "name": "elunari-email-api",
+  "version": "1.0.0",
+  "description": "API de disparo de e-mails do LunareTech",
+  "dependencies": {
+    "nodemailer": "^6.9.13"
+  }
+}
