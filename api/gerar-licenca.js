@@ -1,11 +1,4 @@
-// api/gerar-licenca.js
-
-// (Opcional) Banco temporário em memória ou lista centralizada de licenças ativas
-// Em produção com Vercel, o ideal é salvar em um arquivo JSON na nuvem ou usar a lógica de chave mestra.
-let LICENCAS_WEB = {
-    // Exemplo pré-cadastrado: "email_da_escola@rs.gov.br": "WEB-CHAVE-1234"
-    "escola.teste@rs.gov.br": { chave: "ELUNARI-WEB-2026-TESTE", validade: "2027-11-15" }
-};
+const crypto = require('crypto');
 
 module.exports = async function (req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,7 +7,7 @@ module.exports = async function (req, res) {
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    // Se você acessar via GET no navegador, ele mostra um mini painel HTML simples para gerar a chave
+    // Painel Web (GET)
     if (req.method === 'GET') {
         const htmlPainel = `
             <!DOCTYPE html>
@@ -77,12 +70,10 @@ module.exports = async function (req, res) {
         return res.status(200).send(htmlPainel);
     }
 
-    // Se for POST, processa a criação da chave
+    // Processamento da Geração Matemática (POST)
     if (req.method === 'POST') {
         const { senha, email, dias } = req.body;
-
-        // Defina aqui a sua senha mestre secreta para acessar o painel
-        const SENHA_MESTRE_ADMIN = process.env.ADMIN_SENHA || 'elunari2026admin';
+        const SENHA_MESTRE_ADMIN = process.env.ADMIN_SENHA || 'Elunari@2026';
 
         if (senha !== SENHA_MESTRE_ADMIN) {
             return res.status(401).json({ error: 'Senha de administrador incorreta.' });
@@ -92,24 +83,29 @@ module.exports = async function (req, res) {
             return res.status(400).json({ error: 'E-mail inválido.' });
         }
 
-        // Cria uma chave única baseada no e-mail e em um hash aleatório
-        const hashAleatorio = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const chaveGerada = `ELUNARI-${email.split('@')[0].toUpperCase()}-${hashAleatorio}`;
+        const emailLimpo = email.trim().toLowerCase();
+        const diasNum = parseInt(dias || 365);
 
-        // Calcula a data de expiração
+        // Calcula a data de expiração exata
         const dataExp = new Date();
-        dataExp.setDate(dataExp.getDate() + parseInt(dias || 365));
-        const validadeFormatada = dataExp.toISOString().split('T')[0];
+        dataExp.setDate(dataExp.getDate() + diasNum);
+        const validadeFormatada = dataExp.toISOString().split('T')[0]; // Formato AAAA-MM-DD
 
-        // Salva na lista
-        LICENCAS_WEB[email.trim().toLowerCase()] = {
-            chave: chaveGerada,
-            validade: validadeFormatada
-        };
+        // Criação da assinatura matemática secreta usando o e-mail, a validade e a senha do admin
+        const payload = `${emailLimpo}:${validadeFormatada}:${SENHA_MESTRE_ADMIN}`;
+        const hashCripto = crypto.createHmac('sha256', SENHA_MESTRE_ADMIN)
+                                 .update(payload)
+                                 .digest('hex')
+                                 .substring(0, 10)
+                                 .toUpperCase();
+
+        // Formato final da licença legível e profissional
+        const prefixoEmail = emailLimpo.split('@')[0].toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6);
+        const chaveGerada = `ELUNARI-${prefixoEmail}-${hashCripto}-${validadeFormatada.replace(/-/g, '')}`;
 
         return res.status(200).json({
             sucesso: true,
-            email: email,
+            email: emailLimpo,
             chave: chaveGerada,
             validade: validadeFormatada
         });
